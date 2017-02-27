@@ -10,9 +10,6 @@
 #define DUMP_PATH "ux0:dump/"
 #define LOG_FILE DUMP_PATH "kplugin_log.txt"
 
-
-
-static void log_reset();
 static void log_write(const char *buffer, size_t length);
 
 #define LOG(...) \
@@ -22,7 +19,7 @@ static void log_write(const char *buffer, size_t length);
 		log_write(buffer, strlen(buffer)); \
 	} while (0)
 
-//user 1 -> usermodule
+//user     1 -> usermodule
 //fakecode 0 -> correct location
 //usecdram 1 -> more ram
 		
@@ -31,12 +28,10 @@ int decrypt_self(const char *path, const char *outprefix, int fakecode, int usec
     char outpath[256];
     int ctx;
     int ret;
-    int pid;
     SceUID fd = 0, wfd = 0;
     char *somebuf = NULL;
     char *hdr_buf = NULL, *hdr_buf_aligned;
     char *data_buf = NULL, *data_buf_aligned;
-    int phdr;
 
     unsigned int hdr_size;
 
@@ -212,20 +207,6 @@ fail:
     if (data_buf)
         SceSysmemForKernel_0xABAB0FAB(data_buf);
     return 1;
-}		
-		
-static void dump_region(const char *filename, void *addr, unsigned int size)
-{
-	SceUID fd;
-
-	if (!(fd = ksceIoOpen(filename, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 6))) {
-		LOG("Error opening %s\n", filename);
-		return;
-	}
-
-	ksceIoWrite(fd, addr, size);
-
-	ksceIoClose(fd);
 }
 
 void _start() __attribute__ ((weak, alias ("module_start")));
@@ -343,16 +324,6 @@ int module_start(SceSize argc, const void *args)
 int module_stop(SceSize argc, const void *args)
 {
 	return SCE_KERNEL_STOP_SUCCESS;
-}
-
-void log_reset()
-{
-	SceUID fd = ksceIoOpen(LOG_FILE,
-		SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 6);
-	if (fd < 0)
-		return;
-
-	ksceIoClose(fd);
 }
 
 void log_write(const char *buffer, size_t length)
