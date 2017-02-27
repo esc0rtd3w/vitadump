@@ -29,6 +29,15 @@ __BEGIN_DECLS
 
 #include <stdint.h>
 
+//fucking bullshit right here if i do say so myself
+
+typedef struct {
+	uint64_t offset;
+	uint64_t length;
+	uint64_t compression; // 1 = uncompressed, 2 = compressed
+	uint64_t encryption; // 1 = encrypted, 2 = plain
+} seg_info;
+
 /* Type for a 16-bit quantity.  */
 typedef uint16_t Elf32_Half;
 typedef uint16_t Elf64_Half;
