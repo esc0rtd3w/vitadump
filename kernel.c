@@ -124,9 +124,9 @@ int decrypt_self(const char *path, const char *outprefix, int fakecode, int usec
     void *pgr_buf;
     for (i = 0; i < num_segs; i++)
     {
-        sprintf(outpath, "%s.seg%u", outprefix, i);
+        snprintf(outpath, sizeof(outpath), "%s.seg%u", outprefix, i);
         ksceIoClose(wfd);
-        wfd = ksceIoOpen(outpath, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 6);
+        wfd = ksceIoOpen(outpath, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 6);
         LOG("ksceIoOpen(%s): 0x%08X\n", outpath, wfd);
         if (wfd < 0)
             break;
@@ -175,13 +175,6 @@ int decrypt_self(const char *path, const char *outprefix, int fakecode, int usec
 				LOG("!!! ERROR !!!\n");
 			}
 			ksceIoWrite(wfd, data_buf_aligned, to_read);
-            //ret = memcpy(ctx, data_buf_aligned, off); // copy buffer to output
-            /*LOG("memcpy: 0x%08X\n", ret);
-            if (ret < 0)
-            {
-                LOG("!!! ERROR !!!\n");
-            }
-			*/
             off = 0;
             to_read = total > 0x10000 ? 0x10000 : total;
 			
@@ -211,113 +204,9 @@ fail:
 
 void _start() __attribute__ ((weak, alias ("module_start")));
 
-#define MOD_LIST_SIZE 0x80
-
-
-void doDump(const SceKernelModuleInfo *info) {
-	char path[128] = {0};
-	int i;
-	SceUID fd;
-	Elf32_Ehdr ehdr;
-	Elf32_Phdr phdr;
-	Elf32_Off offset;
-
-	snprintf(path, sizeof(path), DUMP_PATH "%s.elf",
-			info->module_name);
-
-	LOG("Dumping %s\n", path);
-
-	fd = ksceIoOpen(path, SCE_O_CREAT | SCE_O_WRONLY | SCE_O_TRUNC, 6);
-	if (fd < 0) {
-		LOG("Failed to open the file for writing.\n");
-		return;
-	}
-
-	ehdr.e_ident[EI_MAG0] = ELFMAG0;
-	ehdr.e_ident[EI_MAG1] = ELFMAG1;
-	ehdr.e_ident[EI_MAG2] = ELFMAG2;
-	ehdr.e_ident[EI_MAG3] = ELFMAG3;
-	ehdr.e_ident[EI_CLASS] = ELFCLASS32;
-	ehdr.e_ident[EI_DATA] = ELFDATA2LSB;
-	ehdr.e_ident[EI_VERSION] = EV_CURRENT;
-	ehdr.e_ident[EI_OSABI] = ELFOSABI_ARM_AEABI;
-	ehdr.e_ident[EI_ABIVERSION] = 0;
-	memset(ehdr.e_ident + EI_PAD, 0, EI_NIDENT - EI_PAD);
-	ehdr.e_type = ET_CORE;
-	ehdr.e_machine = EM_ARM;
-	ehdr.e_version = EV_CURRENT;
-	ehdr.e_entry = (Elf32_Addr)info->module_start;
-	ehdr.e_phoff = sizeof(ehdr);
-	ehdr.e_flags = EF_ARM_HASENTRY
-					| EF_ARM_ABI_FLOAT_HARD
-					| EF_ARM_EABI_VER5;
-	ehdr.e_ehsize = sizeof(ehdr);
-	ehdr.e_phentsize = sizeof(Elf32_Phdr);
-	ehdr.e_shentsize = sizeof(Elf32_Shdr);
-	ehdr.e_shnum = 0;
-	ehdr.e_shstrndx = 0;
-
-	ehdr.e_shoff = 0;
-	ehdr.e_phnum = 0;
-	for (i = 0; i < 4; ++i) {
-		if (info->segments[i].vaddr == NULL)
-			continue;
-
-		++ehdr.e_phnum;
-	}
-
-	ksceIoWrite(fd, &ehdr, sizeof(ehdr));
-
-	offset = sizeof(ehdr) + ehdr.e_phnum * sizeof(phdr);
-	phdr.p_type = PT_LOAD;
-	phdr.p_paddr = 0;
-	phdr.p_align = 1;
-	for (i = 0; i < 4; ++i) {
-		if (info->segments[i].vaddr == NULL)
-			continue;
-
-		phdr.p_flags = info->segments[i].perms;
-		phdr.p_offset = offset;
-		phdr.p_vaddr = (Elf32_Addr)info->segments[i].vaddr;
-		phdr.p_memsz = info->segments[i].memsz;
-		phdr.p_filesz = phdr.p_memsz;
-
-		ksceIoWrite(fd, &phdr, sizeof(phdr));
-
-		offset += phdr.p_filesz;
-	}
-
-	for (i = 0; i < 4; ++i) {
-		if (info->segments[i].vaddr == NULL) {
-			LOG("Segment #%x is empty, skipping\n", i);
-			continue;
-		}
-
-		ksceIoWrite(fd, info->segments[i].vaddr, info->segments[i].memsz);
-	}
-
-	ksceIoClose(fd);
-
-	snprintf(path, sizeof(path), DUMP_PATH "%s_info.bin",
-		 info->module_name);
-
-	LOG("Dumping %s\n", path);
-
-	fd = ksceIoOpen(path, SCE_O_CREAT | SCE_O_WRONLY | SCE_O_TRUNC, 6);
-	if (fd < 0) {
-		LOG("Failed to open the file for writing.\n");
-		return;
-	}
-
-	ksceIoWrite(fd, info, sizeof(*info));
-	ksceIoClose(fd);
-}
-
-
 int module_start(SceSize argc, const void *args)
 {
-	
-	decrypt_self("ux0:tai/pcbc.skprx", "ux0:dump/pcbc_out.bin", 2, 1, 0); 
+	decrypt_self("ux0:dump/bootimage.skprx", "ux0:dump/bootimage.kprx", 2, 1, 0); 
 	return SCE_KERNEL_START_SUCCESS;
 }
 
@@ -332,7 +221,7 @@ void log_write(const char *buffer, size_t length)
 	ksceIoMkdir(DUMP_PATH, 6);
 
 	SceUID fd = ksceIoOpen(LOG_FILE,
-		SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 6);
+		SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 6);
 	if (fd < 0)
 		return;
 
