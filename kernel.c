@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <taihen.h>
 #include <psp2kern/kernel/modulemgr.h>
 #include <psp2kern/kernel/threadmgr.h>
@@ -206,6 +207,7 @@ void _start() __attribute__ ((weak, alias ("module_start")));
 
 int module_start(SceSize argc, const void *args)
 {
+	ksceIoRemove("ux0:dump/kplugin_log.txt");
 	decrypt_self("ux0:dump/bootimage.skprx", "ux0:dump/bootimage.kprx", 2, 1, 0); 
 	return SCE_KERNEL_START_SUCCESS;
 }
@@ -221,7 +223,7 @@ void log_write(const char *buffer, size_t length)
 	ksceIoMkdir(DUMP_PATH, 6);
 
 	SceUID fd = ksceIoOpen(LOG_FILE,
-		SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 6);
+		SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 6);
 	if (fd < 0)
 		return;
 
