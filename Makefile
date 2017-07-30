@@ -15,7 +15,7 @@ ASFLAGS = $(CFLAGS)
 all: kDump.skprx
 
 kDump.skprx: kDump.velf
-	vita-make-fself $< $@
+	vita-make-fself -c $< $@
 
 kDump.velf: kDump.elf
 	vita-elf-create -e exports.yml $< $@
